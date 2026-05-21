@@ -54,11 +54,16 @@ class Settings:
     list_api_url: str
 
 
-def _read_streamlit_secret(key: str) -> str | None:
+def _read_streamlit_secret_path(path: str) -> str | None:
     if st is None:
         return None
     try:
-        value = st.secrets.get(key)
+        value: object = st.secrets
+        for part in path.split("."):
+            if isinstance(value, dict):
+                value = value.get(part)
+            else:
+                value = value[part]
     except Exception:
         return None
     if value is None:
@@ -67,13 +72,44 @@ def _read_streamlit_secret(key: str) -> str | None:
     return text or None
 
 
-def _read_setting(key: str, default: str = "") -> str:
-    env_value = os.getenv(key, "").strip()
-    if env_value:
-        return env_value
-    secret_value = _read_streamlit_secret(key)
-    if secret_value:
-        return secret_value
+def _read_setting(key: str, default: str = "", aliases: tuple[str, ...] = ()) -> str:
+    candidates = (key, *aliases)
+    for candidate in candidates:
+        env_value = os.getenv(candidate, "").strip()
+        if env_value:
+            return env_value
+
+    secret_paths: list[str] = []
+    for candidate in candidates:
+        secret_paths.extend(
+            [
+                candidate,
+                candidate.lower(),
+                candidate.upper(),
+                f"default.{candidate}",
+                f"default.{candidate.lower()}",
+                f"secrets.{candidate}",
+                f"secrets.{candidate.lower()}",
+            ]
+        )
+    if key == "DATABASE_URL":
+        secret_paths.extend(
+            [
+                "database.url",
+                "database.database_url",
+                "postgres.url",
+                "postgres.database_url",
+                "postgresql.url",
+                "postgresql.database_url",
+                "connections.postgresql.url",
+                "connections.postgres.url",
+            ]
+        )
+
+    for path in secret_paths:
+        secret_value = _read_streamlit_secret_path(path)
+        if secret_value:
+            return secret_value
     return default
 
 

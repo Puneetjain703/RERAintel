@@ -137,6 +137,30 @@ def inject_styles() -> None:
     )
 
 
+def render_missing_configuration(message: str) -> None:
+    st.error(message)
+    st.markdown("### Streamlit Cloud setup")
+    st.markdown(
+        "Add your database and API secrets in the app's **Manage app -> Settings -> Secrets** panel, then redeploy or reboot the app."
+    )
+    st.code(
+        """DATABASE_URL = "postgresql://user:password@host:5432/rera_rajasthan"
+OPENAI_API_KEY = "sk-..."
+RERA_API_KEY = "your_rera_api_key"
+SERPAPI_KEY = "your_serpapi_key"
+SERPAPI_GL = "in"
+SERPAPI_HL = "en"
+SERPAPI_LOCATION = "Rajasthan, India"
+OPENAI_SUMMARY_MODEL = "gpt-5.5"
+""",
+        language="toml",
+    )
+    st.caption(
+        "If you already added secrets, make sure the database key is named `DATABASE_URL` "
+        "or uses one of the supported nested paths such as `database.url` or `connections.postgresql.url`."
+    )
+
+
 @st.cache_resource(show_spinner=False)
 def get_dashboard_connection():
     settings = get_settings()
@@ -2697,13 +2721,17 @@ def run_ai_research_question(question: str, user_mode: str, history: list[dict[s
 
 
 def render_ai_research_panel() -> None:
-    settings = get_settings()
     st.markdown("### Ask AI: database + internet research")
     st.caption(
         "Ask about schema, projects, market data, ROI, changes, or external real-estate context. "
         "Examples: 'What columns are in project_roi_cases?', 'Which Jaipur micro-markets are most active?', "
         "'Summarize this project's booking status', or 'What infra news could affect these launches?'"
     )
+    try:
+        settings = get_settings()
+    except RuntimeError as exc:
+        st.info(f"AI research panel is unavailable until configuration is complete: {exc}")
+        return
 
     if not settings.openai_api_key:
         st.warning("OPENAI_API_KEY was not found in local env or Streamlit secrets.")
@@ -2813,6 +2841,12 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+    try:
+        get_settings()
+    except RuntimeError as exc:
+        render_missing_configuration(str(exc))
+        return
 
     with st.expander("Ask AI Research Agent (database + internet)", expanded=False):
         render_ai_research_panel()
