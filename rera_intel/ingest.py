@@ -552,6 +552,7 @@ def ingest_existing_data(
     *,
     csv_path: Path,
     json_dir: Path,
+    csv_commit_every: int = 250,
     commit_every: int = 250,
 ) -> IngestStats:
     stats = IngestStats()
@@ -582,7 +583,9 @@ def ingest_existing_data(
             stats.csv_rows_processed += 1
             if inserted:
                 stats.projects_inserted += 1
-            if csv_index % 500 == 0 or csv_index == total_csv_rows:
+            if csv_index % csv_commit_every == 0:
+                connection.commit()
+            if csv_index % 100 == 0 or csv_index == total_csv_rows:
                 log_progress(
                     f"CSV progress: {csv_index}/{total_csv_rows} rows processed."
                 )
