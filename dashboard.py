@@ -3004,6 +3004,7 @@ def main() -> None:
                     "Open Project": build_project_detail_url(row["encrypted_project_id"]),
                     "Registration": row.get("registration_no"),
                     "District": row.get("district_name"),
+                    "Street / Plot": row.get("plot_no"),
                     "Area / Village": row.get("village_name"),
                     "Promoter": row.get("promoter_name"),
                     "Type": row.get("project_type"),
