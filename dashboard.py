@@ -938,6 +938,16 @@ def build_project_query_conditions(
     return where_clause, params
 
 
+STREET_NAME_SQL = """
+COALESCE(
+    NULLIF(TRIM(raw_json -> 'GetProjectBasic' ->> 'StreetName'), ''),
+    NULLIF(TRIM(raw_json -> 'GetProjectBasic' ->> 'Street'), ''),
+    NULLIF(TRIM(raw_json ->> 'StreetName'), ''),
+    NULLIF(TRIM(raw_json ->> 'Street'), '')
+)
+"""
+
+
 @st.cache_data(show_spinner=False, ttl=60)
 def query_projects(
     *,
@@ -974,6 +984,7 @@ def query_projects(
                 district_name,
                 tahsil_name,
                 village_name,
+                {STREET_NAME_SQL} AS street_name,
                 plot_no,
                 promoter_name,
                 project_type,
@@ -1110,6 +1121,7 @@ def fetch_projects_page_sql(
                 district_name,
                 tahsil_name,
                 village_name,
+                {STREET_NAME_SQL} AS street_name,
                 plot_no,
                 promoter_name,
                 project_type,
@@ -3004,7 +3016,7 @@ def main() -> None:
                     "Open Project": build_project_detail_url(row["encrypted_project_id"]),
                     "Registration": row.get("registration_no"),
                     "District": row.get("district_name"),
-                    "Street / Plot": row.get("plot_no"),
+                    "Street Name": row.get("street_name"),
                     "Area / Village": row.get("village_name"),
                     "Promoter": row.get("promoter_name"),
                     "Type": row.get("project_type"),
