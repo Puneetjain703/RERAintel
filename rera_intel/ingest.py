@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -69,6 +70,14 @@ def load_csv_rows(csv_path: Path) -> list[dict[str, Any]]:
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def log_progress(message: str) -> None:
+    print(message, flush=True)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        return
 
 
 def jsonb_or_none(value: Any):
@@ -543,14 +552,22 @@ def ingest_existing_data(
     *,
     csv_path: Path,
     json_dir: Path,
+    commit_every: int = 250,
 ) -> IngestStats:
     stats = IngestStats()
     scrape_time = utcnow()
     csv_rows = load_csv_rows(csv_path)
     csv_by_id: dict[str, dict[str, Any]] = {}
+    total_csv_rows = len(csv_rows)
+    json_files = sorted(json_dir.glob("*.json")) if json_dir.exists() else []
+    total_json_files = len(json_files)
+
+    log_progress(
+        f"Starting ingestion: {total_csv_rows} CSV rows, {total_json_files} JSON files."
+    )
 
     with connection.cursor() as cursor:
-        for row in csv_rows:
+        for csv_index, row in enumerate(csv_rows, start=1):
             encrypted_project_id = (row.get("EncryptedProjectId") or "").strip()
             if not encrypted_project_id:
                 stats.csv_rows_skipped += 1
@@ -565,11 +582,14 @@ def ingest_existing_data(
             stats.csv_rows_processed += 1
             if inserted:
                 stats.projects_inserted += 1
+            if csv_index % 500 == 0 or csv_index == total_csv_rows:
+                log_progress(
+                    f"CSV progress: {csv_index}/{total_csv_rows} rows processed."
+                )
 
         known_ids = sorted(csv_by_id.keys(), key=len, reverse=True)
-        json_files = sorted(json_dir.glob("*.json")) if json_dir.exists() else []
 
-        for json_file in json_files:
+        for json_index, json_file in enumerate(json_files, start=1):
             try:
                 raw_json = json.loads(json_file.read_text(encoding="utf-8"))
                 encrypted_project_id = derive_encrypted_project_id(
@@ -605,5 +625,15 @@ def ingest_existing_data(
                 stats.json_files_skipped += 1
                 stats.errors.append(f"{json_file.name}: {exc}")
 
+            if json_index % commit_every == 0:
+                connection.commit()
+                log_progress(
+                    "JSON progress: "
+                    f"{json_index}/{total_json_files} files processed | "
+                    f"changed={stats.projects_changed} unchanged={stats.projects_unchanged} "
+                    f"inserted={stats.projects_inserted} skipped={stats.json_files_skipped}"
+                )
+
     connection.commit()
+    log_progress("Ingestion transaction committed.")
     return stats
