@@ -1,0 +1,26 @@
+.DS_Store
+.claude/
+.env
+.env.local
+.venv/
+__pycache__/
+*.pyc
+
+openaikey
+.streamlit/secrets.toml
+
+logs/
+.rera_auto_sync_state.json
+.rera_detail_sync_failures.json
+.rera_auto_sync.lock
+
+rera.db
+rajasthan_rera_projects.csv
+rajasthan_rera_projects_*.xlsx
+rera_project_detail_success_*.xlsx
+rera_project_detail_failed_*.xlsx
+rera_project_detail_jsons/
+
+old_dashboard.py
+old_dashboard_1.py
+NEW TRY_WOOHOO/
