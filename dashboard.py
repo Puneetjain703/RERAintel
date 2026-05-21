@@ -11,6 +11,7 @@ import pandas as pd
 import requests
 import pydeck as pdk
 import streamlit as st
+from psycopg.errors import UndefinedTable
 
 from rera_intel.config import get_settings
 from rera_intel.ai_chat import (
@@ -158,6 +159,67 @@ OPENAI_SUMMARY_MODEL = "gpt-5.5"
     st.caption(
         "If you already added secrets, make sure the database key is named `DATABASE_URL` "
         "or uses one of the supported nested paths such as `database.url` or `connections.postgresql.url`."
+    )
+
+
+def get_database_bootstrap_status() -> tuple[bool, str | None]:
+    try:
+        connection = get_dashboard_connection()
+        with connection.cursor() as cursor:
+            row = fetch_one(
+                cursor,
+                """
+                SELECT
+                    to_regclass('public.rera_projects') AS rera_projects,
+                    to_regclass('public.rera_project_changes') AS rera_project_changes,
+                    to_regclass('public.project_market_prices') AS project_market_prices,
+                    to_regclass('public.project_roi_cases') AS project_roi_cases
+                """,
+            )
+            if not row:
+                return False, "Database check returned no result."
+            missing = [
+                table_name
+                for table_name, regclass in row.items()
+                if regclass is None
+            ]
+            if missing:
+                return False, (
+                    "Connected to PostgreSQL, but the app tables are missing: "
+                    + ", ".join(missing)
+                    + "."
+                )
+
+            count_row = fetch_one(cursor, "SELECT COUNT(*)::int AS project_count FROM rera_projects")
+            project_count = int((count_row or {}).get("project_count") or 0)
+            if project_count == 0:
+                return False, (
+                    "Connected to PostgreSQL, and the schema exists, but `rera_projects` is empty."
+                )
+    except UndefinedTable:
+        return False, "Connected to PostgreSQL, but the required app tables do not exist yet."
+    except Exception as exc:  # noqa: BLE001
+        return False, f"Database connection or schema check failed: {exc}"
+
+    return True, None
+
+
+def render_database_setup_required(message: str) -> None:
+    st.error(message)
+    st.markdown("### Database setup required")
+    st.markdown(
+        "Your Streamlit app can reach PostgreSQL, but the RERA schema and/or data have not been loaded into that database yet."
+    )
+    st.markdown("Use the same Neon `DATABASE_URL` locally, then run:")
+    st.code(
+        """python setup_db.py
+python ingest_existing_jsons.py""",
+        language="bash",
+    )
+    st.markdown("If you also want fresh API sync support afterward, run:")
+    st.code("python daily_sync.py", language="bash")
+    st.caption(
+        "In short: Streamlit Cloud only hosts the app. It does not automatically create your tables or import your local project data into Neon."
     )
 
 
@@ -2846,6 +2908,11 @@ def main() -> None:
         get_settings()
     except RuntimeError as exc:
         render_missing_configuration(str(exc))
+        return
+
+    db_ready, db_message = get_database_bootstrap_status()
+    if not db_ready:
+        render_database_setup_required(db_message or "Database is not ready.")
         return
 
     with st.expander("Ask AI Research Agent (database + internet)", expanded=False):
