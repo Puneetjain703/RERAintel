@@ -212,3 +212,51 @@ OPENAI_SUMMARY_MODEL = "gpt-5.5"
 ```bash
 streamlit run streamlit_app.py
 ```
+
+## Daily refresh on GitHub Actions
+
+The repository now includes a scheduled workflow at `.github/workflows/daily-sync.yml`.
+
+What it does:
+
+- runs every day at `14:00 IST` (`08:30 UTC`)
+- can also be triggered manually from the GitHub Actions tab with `Run workflow`
+- ensures the PostgreSQL schema exists with `python setup_db.py`
+- runs `python daily_sync.py` against your remote database
+- writes temporary CSV/JSON/state files only on the GitHub runner, not to your laptop
+
+### Required GitHub repository secrets
+
+Add these in your GitHub repo under `Settings -> Secrets and variables -> Actions -> Secrets`:
+
+```text
+DATABASE_URL
+RERA_API_KEY
+OPENAI_API_KEY
+SERPAPI_KEY
+```
+
+Only `DATABASE_URL` and `RERA_API_KEY` are strictly required for the daily RERA sync job itself. `OPENAI_API_KEY` and `SERPAPI_KEY` are useful for the dashboard's other features.
+
+### Optional GitHub repository variables
+
+You can also add these under `Settings -> Secrets and variables -> Actions -> Variables` if you want to tune the sync without changing code:
+
+```text
+DETAIL_SYNC_MAX_PROJECTS_PER_RUN
+DETAIL_SYNC_REFRESH_DAYS
+DETAIL_SYNC_CANDIDATE_SCAN_MULTIPLIER
+DETAIL_SYNC_FAILURE_COOLDOWN_HOURS
+SERPAPI_GL
+SERPAPI_HL
+SERPAPI_LOCATION
+OPENAI_SUMMARY_MODEL
+GEOCODING_ENDPOINT
+GEOCODING_REVERSE_ENDPOINT
+GEOCODING_USER_AGENT
+GEOCODING_EMAIL
+```
+
+### Important note
+
+This daily workflow will populate and refresh the remote database directly. It is enough to keep `rera_projects` and detail JSON data moving forward without your computer being on.

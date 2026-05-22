@@ -1,0 +1,68 @@
+name: Daily RERA Sync
+
+on:
+  schedule:
+    # 14:00 IST every day
+    - cron: "30 8 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: daily-rera-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RERA_API_KEY: ${{ secrets.RERA_API_KEY }}
+      DETAIL_SYNC_MAX_PROJECTS_PER_RUN: ${{ vars.DETAIL_SYNC_MAX_PROJECTS_PER_RUN || '100' }}
+      DETAIL_SYNC_REFRESH_DAYS: ${{ vars.DETAIL_SYNC_REFRESH_DAYS || '30' }}
+      DETAIL_SYNC_CANDIDATE_SCAN_MULTIPLIER: ${{ vars.DETAIL_SYNC_CANDIDATE_SCAN_MULTIPLIER || '3' }}
+      DETAIL_SYNC_FAILURE_COOLDOWN_HOURS: ${{ vars.DETAIL_SYNC_FAILURE_COOLDOWN_HOURS || '24' }}
+      SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+      SERPAPI_GL: ${{ vars.SERPAPI_GL || 'in' }}
+      SERPAPI_HL: ${{ vars.SERPAPI_HL || 'en' }}
+      SERPAPI_LOCATION: ${{ vars.SERPAPI_LOCATION || 'Rajasthan, India' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_SUMMARY_MODEL: ${{ vars.OPENAI_SUMMARY_MODEL || 'gpt-5.5' }}
+      GEOCODING_ENDPOINT: ${{ vars.GEOCODING_ENDPOINT || 'https://nominatim.openstreetmap.org/search' }}
+      GEOCODING_REVERSE_ENDPOINT: ${{ vars.GEOCODING_REVERSE_ENDPOINT || 'https://nominatim.openstreetmap.org/reverse' }}
+      GEOCODING_USER_AGENT: ${{ vars.GEOCODING_USER_AGENT || 'rera-rajasthan-intel/1.0' }}
+      GEOCODING_EMAIL: ${{ vars.GEOCODING_EMAIL || '' }}
+      RERA_CSV_PATH: ${{ runner.temp }}/rajasthan_rera_projects.csv
+      RERA_JSON_DIR: ${{ runner.temp }}/rera_project_detail_jsons
+      DETAIL_SYNC_FAILURE_STATE_PATH: ${{ runner.temp }}/.rera_detail_sync_failures.json
+      AUTO_SYNC_STATE_PATH: ${{ runner.temp }}/.rera_auto_sync_state.json
+      AUTO_SYNC_LOCK_PATH: ${{ runner.temp }}/.rera_auto_sync.lock
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Prepare runner directories
+        run: mkdir -p "$RERA_JSON_DIR"
+
+      - name: Validate required secrets
+        run: |
+          test -n "$DATABASE_URL" || (echo "Missing GitHub secret: DATABASE_URL" && exit 1)
+          test -n "$RERA_API_KEY" || (echo "Missing GitHub secret: RERA_API_KEY" && exit 1)
+
+      - name: Ensure database schema exists
+        run: python setup_db.py
+
+      - name: Run daily sync
+        run: python daily_sync.py
