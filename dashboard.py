@@ -535,6 +535,20 @@ def list_rows_from_section(raw_json: dict[str, Any], section_names: list[str]) -
     return []
 
 
+def list_building_apartment_rows(raw_json: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    buildings = raw_json.get("GetBuildingDetails")
+    if not isinstance(buildings, list):
+        return rows
+    for building in buildings:
+        if not isinstance(building, dict):
+            continue
+        apartment_rows = building.get("GetAppartmentDetails")
+        if isinstance(apartment_rows, list):
+            rows.extend(item for item in apartment_rows if isinstance(item, dict))
+    return rows
+
+
 def row_looks_like_inventory_item(row: dict[str, Any], *, plot_mode: bool) -> bool:
     keys = {normalize_key(key) for key in row.keys()}
     if plot_mode:
@@ -599,7 +613,18 @@ def count_sold_from_status_rows(rows: list[dict[str, Any]]) -> int | None:
         "IsAllotted",
     ]
     sold_words = {"sold", "booked", "allotted", "allotteed", "reserved"}
-    unsold_words = {"unsold", "available", "vacant", "not sold", "not booked"}
+    unsold_words = {
+        "unsold",
+        "available",
+        "vacant",
+        "not sold",
+        "not booked",
+        "not allotted",
+        "not reserved",
+        "unbooked",
+        "unallotted",
+        "free",
+    }
 
     saw_status = False
     sold_count = 0
@@ -615,9 +640,10 @@ def count_sold_from_status_rows(rows: list[dict[str, Any]]) -> int | None:
             text = str(value).strip().casefold()
             if not text:
                 break
-            if any(word in text for word in unsold_words):
+            normalized = " ".join(re.split(r"[^a-z0-9]+", text)).strip()
+            if normalized in unsold_words:
                 break
-            if text in {"1", "true", "yes", "y"} or any(word in text for word in sold_words):
+            if normalized in {"1", "true", "yes", "y"} or normalized in sold_words:
                 sold_count += 1
                 break
             break
@@ -680,6 +706,8 @@ SOLD_INVENTORY_KEYS = [
     "AllottedPlot",
     "ReservedUnits",
     "ReservedUnit",
+    "NumberOfApartmentsBooked",
+    "BookedApartment",
 ]
 
 
@@ -710,6 +738,7 @@ def get_inventory_summary(project: dict[str, Any]) -> dict[str, Any]:
 
     building_rows = list_rows_from_section(raw_json, ["GetBuildingDetails"])
     plot_rows = list_rows_from_section(raw_json, ["Tbl_Plots", "PlotDetails"])
+    apartment_detail_rows = list_building_apartment_rows(raw_json)
     apartment_rows = list_rows_from_section(raw_json, ["GetApartmentAllotteeDetailsList"])
 
     building_total = sum_numbers_case_insensitive(building_rows, TOTAL_INVENTORY_KEYS)
@@ -719,6 +748,14 @@ def get_inventory_summary(project: dict[str, Any]) -> dict[str, Any]:
     building_sold = sum_numbers_case_insensitive(building_rows, SOLD_INVENTORY_KEYS)
     if building_sold is not None:
         sold_candidates.append(building_sold)
+
+    apartment_detail_total = sum_numbers_case_insensitive(apartment_detail_rows, ["NumberOfApartments"])
+    if apartment_detail_total is not None:
+        total_candidates.append(apartment_detail_total)
+
+    apartment_detail_sold = sum_numbers_case_insensitive(apartment_detail_rows, ["NumberOfApartmentsBooked"])
+    if apartment_detail_sold is not None:
+        sold_candidates.append(apartment_detail_sold)
 
     # Fallback for plotted projects: count rows only when the table rows clearly look like plot rows.
     plot_total = count_inventory_rows(plot_rows, plot_mode=True)
@@ -730,7 +767,7 @@ def get_inventory_summary(project: dict[str, Any]) -> dict[str, Any]:
     if unit_total is not None:
         total_candidates.append(unit_total)
 
-    for rows in [plot_rows, apartment_rows, building_rows]:
+    for rows in [plot_rows, apartment_rows, apartment_detail_rows, building_rows]:
         status_sold = count_sold_from_status_rows(rows)
         if status_sold is not None:
             sold_candidates.append(status_sold)

@@ -417,11 +417,12 @@ def normalize_booking_counts(booking_status_counts: dict[str, int]) -> dict[str,
     total = sum(normalized.values()) if normalized else None
 
     for key, value in normalized.items():
-        if "unsold" in key or "available" in key:
+        normalized_key = " ".join(re.split(r"[^a-z0-9]+", key)).strip()
+        if normalized_key in {"unsold", "available", "vacant", "not sold", "not booked", "unbooked", "not allotted"}:
             unsold += value
-        elif "book" in key or "allot" in key or "sold" in key or "reserve" in key:
+        elif normalized_key in {"booked", "allotted", "sold", "reserved"}:
             sold += value
-            if "book" in key:
+            if normalized_key == "booked":
                 booked += value
 
     return {
@@ -430,6 +431,50 @@ def normalize_booking_counts(booking_status_counts: dict[str, int]) -> dict[str,
         "booked": booked if booked else None,
         "total": total,
     }
+
+
+def summarize_professional_sections(raw_json: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    professional_detail = raw_json.get("ProjectProFessionAlDetail")
+    if not isinstance(professional_detail, dict):
+        return {}
+
+    section_summaries: dict[str, list[dict[str, Any]]] = {}
+    for section, rows in professional_detail.items():
+        if not isinstance(rows, list):
+            continue
+        summary_rows: list[dict[str, Any]] = []
+        for row in rows[:5]:
+            if not isinstance(row, dict):
+                continue
+            summary = {
+                key: json_safe(row.get(key))
+                for key in [
+                    "Name",
+                    "Type",
+                    "ContactNumber",
+                    "Email",
+                    "RegistrationNo",
+                    "COARegistrationNo",
+                    "Address",
+                ]
+                if row.get(key) not in (None, "", [], {})
+            }
+            if summary:
+                summary_rows.append(summary)
+        if summary_rows:
+            section_summaries[section] = summary_rows
+    return section_summaries
+
+
+def list_professional_section_names(raw_json: dict[str, Any]) -> list[str]:
+    professional_detail = raw_json.get("ProjectProFessionAlDetail")
+    if not isinstance(professional_detail, dict):
+        return []
+    return [
+        section
+        for section, rows in professional_detail.items()
+        if isinstance(rows, list) and rows
+    ][:15]
 
 
 def extract_project_reference(question: str) -> str | None:
@@ -504,6 +549,11 @@ def build_project_summary_answer(project: dict[str, Any]) -> dict[str, Any]:
                 "- Professional sections available: "
                 + ", ".join(str(section) for section in raw_json_summary["professional_sections"][:8])
             )
+        professional_directory = raw_json_summary.get("professional_directory") or {}
+        for section, rows in list(professional_directory.items())[:6]:
+            names = [clean_text(row.get("Name")) for row in rows if clean_text(row.get("Name"))]
+            if names:
+                lines.append(f"- {section}: " + ", ".join(names[:4]))
 
     preview_rows = [project]
     return {
@@ -687,7 +737,8 @@ def summarize_raw_json(raw_json: Any) -> dict[str, Any]:
         "project_area_facilities": area_facilities,
         "building_count": len(raw_json.get("GetBuildingDetails") or []) if isinstance(raw_json.get("GetBuildingDetails"), list) else None,
         "document_count": len(raw_json.get("GetDocumentsList") or []) if isinstance(raw_json.get("GetDocumentsList"), list) else None,
-        "professional_sections": list((raw_json.get("ProjectProFessionAlDetail") or {}).keys())[:15] if isinstance(raw_json.get("ProjectProFessionAlDetail"), dict) else [],
+        "professional_sections": list_professional_section_names(raw_json),
+        "professional_directory": summarize_professional_sections(raw_json),
         "booking_status_counts": booking_status_counts,
     }
     return {key: value for key, value in summary.items() if value not in (None, "", [], {})}
