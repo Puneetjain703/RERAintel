@@ -898,6 +898,13 @@ def collect_professional_names(raw_json: dict[str, Any] | None) -> list[str]:
     return unique_text_parts(names)
 
 
+def default_district_selection(districts: list[str]) -> list[str]:
+    for district in districts:
+        if clean_text(district).casefold() == "jaipur":
+            return [district]
+    return []
+
+
 @st.cache_data(show_spinner=False, ttl=300)
 def load_project_indexes() -> dict[str, Any]:
     connection = get_dashboard_connection()
@@ -2981,7 +2988,11 @@ def main() -> None:
     with st.sidebar:
         st.header("Filters")
         search = st.text_input("Project search", placeholder="Name, registration, promoter, encrypted ID")
-        districts = st.multiselect("District", filter_options["districts"])
+        districts = st.multiselect(
+            "District",
+            filter_options["districts"],
+            default=default_district_selection(filter_options["districts"]),
+        )
         promoter_search = st.text_input("Promoter filter", placeholder="Contains promoter name")
         use_professional_filter = st.checkbox(
             "Enable professional filter",
