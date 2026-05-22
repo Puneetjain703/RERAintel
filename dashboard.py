@@ -224,9 +224,17 @@ python ingest_existing_jsons.py""",
 
 
 @st.cache_resource(show_spinner=False)
-def get_dashboard_connection():
+def _create_dashboard_connection():
     settings = get_settings()
     return get_connection(settings.database_url)
+
+
+def get_dashboard_connection():
+    connection = _create_dashboard_connection()
+    if getattr(connection, "closed", False) or getattr(connection, "broken", False):
+        _create_dashboard_connection.clear()
+        connection = _create_dashboard_connection()
+    return connection
 
 
 def fetch_all(cursor, query: str, params: tuple[Any, ...] | list[Any] | None = None):
