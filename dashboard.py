@@ -3045,10 +3045,14 @@ def main() -> None:
 
     auto_load_inventory = len(projects) <= 300
     with st.sidebar:
-        load_inventory_in_list = st.checkbox(
-            "Load inventory columns in main list",
-            value=auto_load_inventory,
-            help="Large result sets can slow the list because inventory is derived from raw project JSON.",
+        inventory_mode = st.segmented_control(
+            "Inventory columns",
+            options=["Auto", "Show", "Hide"],
+            default="Auto",
+            help="Auto loads inventory for smaller result sets. Show forces it on, and Hide keeps the list faster.",
+        )
+        load_inventory_in_list = (
+            auto_load_inventory if inventory_mode == "Auto" else inventory_mode == "Show"
         )
 
     metric1, metric2, metric3 = st.columns(3)
@@ -3071,7 +3075,6 @@ def main() -> None:
             display_rows.append(
                 {
                     "Project": row.get("project_name"),
-                    "Open Project": build_project_detail_url(row["encrypted_project_id"]),
                     "Registration": row.get("registration_no"),
                     "District": row.get("district_name"),
                     "Street Name": row.get("street_name"),
@@ -3092,11 +3095,11 @@ def main() -> None:
             )
 
         st.caption(
-            "Use the Open Project link, select a row to load details on the same page, "
+            "Select a row to load project details on the same page, "
             "or use the project selector below. Inventory is conservative; unclear sold data is shown as NA instead of guessed."
         )
         if not load_inventory_in_list and len(projects) > 300:
-            st.caption("Inventory columns are not loaded for this large result set by default. Enable the sidebar checkbox if you want them populated.")
+            st.caption("Inventory columns are hidden for this large result set right now. Change the sidebar control to Show if you want them populated.")
         display_df = pd.DataFrame(display_rows)
         selected_rows = []
         try:
@@ -3106,12 +3109,6 @@ def main() -> None:
                 hide_index=True,
                 on_select="rerun",
                 selection_mode="single-row",
-                column_config={
-                    "Open Project": st.column_config.LinkColumn(
-                        "Open Project",
-                        display_text="Open project",
-                    )
-                },
             )
             selected_rows = getattr(getattr(table_event, "selection", None), "rows", []) or []
         except TypeError:
@@ -3120,14 +3117,8 @@ def main() -> None:
                 display_df,
                 use_container_width=True,
                 hide_index=True,
-                column_config={
-                    "Open Project": st.column_config.LinkColumn(
-                        "Open Project",
-                        display_text="Open project",
-                    )
-                },
             )
-            st.caption("Your Streamlit version does not support row-click selection. Use the Open Project link or project selector below.")
+            st.caption("Your Streamlit version does not support row-click selection. Use the project selector below.")
 
         if selected_rows:
             selected_index = int(selected_rows[0])
