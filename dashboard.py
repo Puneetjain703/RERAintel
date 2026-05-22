@@ -95,17 +95,18 @@ def inject_styles() -> None:
         """
         <style>
         :root {
-            --sand: #f6efe3;
-            --ink: #1f2933;
-            --clay: #9b5f3d;
-            --sage: #57715f;
-            --line: #d8c8b2;
+            --sand: #0f1720;
+            --ink: #e8edf2;
+            --clay: #c58a62;
+            --sage: #7ea497;
+            --line: #2e3944;
         }
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(155, 95, 61, 0.08), transparent 28%),
-                radial-gradient(circle at top right, rgba(87, 113, 95, 0.10), transparent 24%),
-                linear-gradient(180deg, #fffdf8 0%, var(--sand) 100%);
+                radial-gradient(circle at top left, rgba(197, 138, 98, 0.16), transparent 28%),
+                radial-gradient(circle at top right, rgba(126, 164, 151, 0.14), transparent 24%),
+                linear-gradient(180deg, #111821 0%, var(--sand) 100%);
+            color: var(--ink);
         }
         .block-container {
             padding-top: 2rem;
@@ -114,8 +115,9 @@ def inject_styles() -> None:
             padding: 1.2rem 1.4rem;
             border: 1px solid var(--line);
             border-radius: 18px;
-            background: rgba(255, 255, 255, 0.82);
-            box-shadow: 0 18px 50px rgba(31, 41, 51, 0.06);
+            background: rgba(17, 24, 33, 0.78);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+            backdrop-filter: blur(8px);
             margin-bottom: 1rem;
         }
         .hero h1 {
@@ -125,7 +127,7 @@ def inject_styles() -> None:
         }
         .hero p {
             margin: 0.5rem 0 0 0;
-            color: #5b6570;
+            color: #b8c4cf;
         }
         div[data-testid="stMetricValue"] {
             overflow: visible;
