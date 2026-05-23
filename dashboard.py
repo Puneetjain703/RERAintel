@@ -1305,6 +1305,27 @@ def query_project_stats(
     }
 
 
+@st.cache_data(show_spinner=False, ttl=300)
+def load_global_project_metrics() -> dict[str, int]:
+    connection = get_dashboard_connection()
+    with connection.cursor() as cursor:
+        row = fetch_one(
+            cursor,
+            """
+            SELECT
+                COUNT(*)::int AS total_projects,
+                COUNT(*) FILTER (
+                    WHERE COALESCE(created_at, csv_updated_on, last_scraped_at) >= NOW() - INTERVAL '7 days'
+                )::int AS new_projects_this_week
+            FROM rera_projects
+            """,
+        )
+    return row or {
+        "total_projects": 0,
+        "new_projects_this_week": 0,
+    }
+
+
 def query_projects_page(
     *,
     search: str,
@@ -3281,9 +3302,8 @@ def main() -> None:
 
     stats = {
         "filtered_projects": len(projects),
-        "with_raw_json": sum(1 for row in projects if row.get("has_raw_json")),
-        "with_tracked_changes": sum(1 for row in projects if row.get("last_changed_at")),
     }
+    global_metrics = load_global_project_metrics()
 
     auto_load_inventory = len(projects) <= 300
     with st.sidebar:
@@ -3299,8 +3319,8 @@ def main() -> None:
 
     metric1, metric2, metric3 = st.columns(3)
     metric1.metric("Filtered projects", int(stats.get("filtered_projects") or 0))
-    metric2.metric("With raw JSON", int(stats.get("with_raw_json") or 0))
-    metric3.metric("With tracked changes", int(stats.get("with_tracked_changes") or 0))
+    metric2.metric("Total Projects", int(global_metrics.get("total_projects") or 0))
+    metric3.metric("New Projects added this week", int(global_metrics.get("new_projects_this_week") or 0))
 
     if projects:
         inventory_index: dict[str, dict[str, Any]] = {}
