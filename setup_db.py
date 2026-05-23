@@ -11,7 +11,8 @@ def main() -> None:
     print("Database schema is ready.")
     print(
         "Tables: rera_projects, rera_project_snapshots, rera_project_changes, "
-        "project_market_prices, project_price_candidates, project_roi_cases"
+        "project_market_prices, project_price_candidates, project_roi_cases, "
+        "ai_chat_logs, whatsapp_message_logs"
     )
 
 

@@ -47,6 +47,12 @@ class Settings:
     geocoding_reverse_endpoint: str
     geocoding_user_agent: str
     geocoding_email: str | None
+    whatsapp_verify_token: str | None
+    whatsapp_access_token: str | None
+    whatsapp_phone_number_id: str | None
+    whatsapp_allowed_numbers: tuple[str, ...]
+    whatsapp_graph_api_version: str
+    whatsapp_reply_max_chars: int
     openai_api_key: str | None
     openai_summary_model: str
     csv_path: Path
@@ -111,6 +117,15 @@ def _read_setting(key: str, default: str = "", aliases: tuple[str, ...] = ()) ->
         if secret_value:
             return secret_value
     return default
+
+
+def _parse_csv_setting(value: str) -> tuple[str, ...]:
+    items = []
+    for part in (value or "").split(","):
+        cleaned = part.strip()
+        if cleaned:
+            items.append(cleaned)
+    return tuple(items)
 
 
 def get_settings(*, require_api_key: bool = False) -> Settings:
@@ -181,6 +196,15 @@ def get_settings(*, require_api_key: bool = False) -> Settings:
     ) or "rera-rajasthan-intel/1.0"
     geocoding_email = _read_setting("GEOCODING_EMAIL") or None
 
+    whatsapp_verify_token = _read_setting("WHATSAPP_VERIFY_TOKEN") or None
+    whatsapp_access_token = _read_setting("WHATSAPP_ACCESS_TOKEN") or None
+    whatsapp_phone_number_id = _read_setting("WHATSAPP_PHONE_NUMBER_ID") or None
+    whatsapp_allowed_numbers = _parse_csv_setting(_read_setting("WHATSAPP_ALLOWED_NUMBERS"))
+    whatsapp_graph_api_version = _read_setting("WHATSAPP_GRAPH_API_VERSION", "v23.0") or "v23.0"
+    whatsapp_reply_max_chars = int(
+        _read_setting("WHATSAPP_REPLY_MAX_CHARS", "1200") or "1200"
+    )
+
     openai_api_key = _read_setting("OPENAI_API_KEY") or None
     if not openai_api_key and OPENAI_KEY_FILE.exists():
         openai_api_key = OPENAI_KEY_FILE.read_text(encoding="utf-8").strip() or None
@@ -211,6 +235,12 @@ def get_settings(*, require_api_key: bool = False) -> Settings:
         geocoding_reverse_endpoint=geocoding_reverse_endpoint,
         geocoding_user_agent=geocoding_user_agent,
         geocoding_email=geocoding_email,
+        whatsapp_verify_token=whatsapp_verify_token,
+        whatsapp_access_token=whatsapp_access_token,
+        whatsapp_phone_number_id=whatsapp_phone_number_id,
+        whatsapp_allowed_numbers=whatsapp_allowed_numbers,
+        whatsapp_graph_api_version=whatsapp_graph_api_version,
+        whatsapp_reply_max_chars=whatsapp_reply_max_chars,
         openai_api_key=openai_api_key,
         openai_summary_model=openai_summary_model,
         csv_path=csv_path,

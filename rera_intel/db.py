@@ -146,6 +146,20 @@ CREATE TABLE IF NOT EXISTS ai_chat_logs (
     error_text TEXT
 );
 
+CREATE TABLE IF NOT EXISTS whatsapp_message_logs (
+    id BIGSERIAL PRIMARY KEY,
+    logged_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound', 'system')),
+    from_number TEXT,
+    to_number TEXT,
+    wa_message_id TEXT,
+    question TEXT,
+    answer TEXT,
+    payload JSONB,
+    status TEXT,
+    error_text TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_rera_projects_registration_no
     ON rera_projects (registration_no);
 CREATE INDEX IF NOT EXISTS idx_rera_projects_project_name
@@ -186,6 +200,10 @@ CREATE INDEX IF NOT EXISTS idx_project_roi_cases_encrypted_created_at
     ON project_roi_cases (encrypted_project_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_chat_logs_asked_at
     ON ai_chat_logs (asked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_message_logs_logged_at
+    ON whatsapp_message_logs (logged_at DESC);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_message_logs_from_number
+    ON whatsapp_message_logs (from_number, logged_at DESC);
 """
 
 

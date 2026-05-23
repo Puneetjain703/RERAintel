@@ -26,6 +26,7 @@ MVP for loading Rajasthan RERA project listings plus raw project-detail JSON int
 - `install_launch_agent.py`: installs a macOS LaunchAgent so the updater checks automatically in the background
 - `dashboard.py`: Streamlit dashboard
 - `streamlit_app.py`: Streamlit Community Cloud entrypoint
+- `api.py`: FastAPI backend for health checks, AI ask endpoint, and WhatsApp webhook handling
 - `rera_intel/`: shared config, schema, extraction, hashing, and ingest logic
 
 ## Prerequisites
@@ -72,6 +73,12 @@ SERPAPI_HL=en
 SERPAPI_LOCATION=Rajasthan, India
 OPENAI_API_KEY=your_openai_api_key
 OPENAI_SUMMARY_MODEL=gpt-5.5
+WHATSAPP_VERIFY_TOKEN=your_verify_token
+WHATSAPP_ACCESS_TOKEN=your_cloud_api_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_ALLOWED_NUMBERS=+9198xxxxxx01,+9198xxxxxx02
+WHATSAPP_GRAPH_API_VERSION=v23.0
+WHATSAPP_REPLY_MAX_CHARS=1200
 RERA_CSV_PATH=rajasthan_rera_projects.csv
 RERA_JSON_DIR=rera_project_detail_jsons
 ```
@@ -82,6 +89,12 @@ RERA_JSON_DIR=rera_project_detail_jsons
 python setup_db.py
 python ingest_existing_jsons.py
 streamlit run streamlit_app.py
+```
+
+Optional backend for AI and WhatsApp:
+
+```bash
+uvicorn api:app --reload
 ```
 
 If you are updating an existing local setup, run `python setup_db.py` again after pulling the latest code so PostgreSQL creates any newly added tables and indexes.
@@ -163,6 +176,17 @@ python auto_update.py --force
   - OpenAI document summary action
   - raw JSON viewer
   - change log viewer
+- The FastAPI backend supports:
+  - `GET /health`
+  - `POST /ask`
+  - `GET /whatsapp/webhook`
+  - `POST /whatsapp/webhook`
+- WhatsApp webhook behavior:
+  - reads inbound text messages
+  - restricts replies to `WHATSAPP_ALLOWED_NUMBERS`
+  - sends the question to the AI agent in `Auto` mode
+  - shortens long replies for WhatsApp and limits project lists to the top 5 preview rows
+  - logs inbound and outbound WhatsApp events in `whatsapp_message_logs`
 
 ## Streamlit Community Cloud deployment
 

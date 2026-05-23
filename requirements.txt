@@ -5,3 +5,5 @@ streamlit>=1.45.1
 pandas>=2.2.2
 openai>=2.0.0
 pydeck>=0.9.1
+fastapi>=0.115.0
+uvicorn>=0.32.0
