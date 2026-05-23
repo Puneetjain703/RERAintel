@@ -46,7 +46,30 @@ st.set_page_config(
 )
 
 
-SATELLITE_MAP_STYLE = {
+DETAILED_MAP_STYLE = {
+    "version": 8,
+    "sources": {
+        "carto-voyager": {
+            "type": "raster",
+            "tiles": [
+                "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
+            ],
+            "tileSize": 256,
+            "attribution": "OpenStreetMap contributors, CARTO",
+        },
+    },
+    "layers": [
+        {
+            "id": "carto-voyager",
+            "type": "raster",
+            "source": "carto-voyager",
+            "minzoom": 0,
+            "maxzoom": 20,
+        },
+    ],
+}
+
+HYBRID_MAP_STYLE = {
     "version": 8,
     "sources": {
         "esri-world-imagery": {
@@ -56,6 +79,14 @@ SATELLITE_MAP_STYLE = {
             ],
             "tileSize": 256,
             "attribution": "Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+        },
+        "esri-world-transportation": {
+            "type": "raster",
+            "tiles": [
+                "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+            ],
+            "tileSize": 256,
+            "attribution": "Esri",
         },
         "esri-reference-labels": {
             "type": "raster",
@@ -75,6 +106,13 @@ SATELLITE_MAP_STYLE = {
             "maxzoom": 22,
         },
         {
+            "id": "esri-world-transportation",
+            "type": "raster",
+            "source": "esri-world-transportation",
+            "minzoom": 0,
+            "maxzoom": 22,
+        },
+        {
             "id": "esri-reference-labels",
             "type": "raster",
             "source": "esri-reference-labels",
@@ -84,10 +122,33 @@ SATELLITE_MAP_STYLE = {
     ],
 }
 
+SATELLITE_MAP_STYLE = {
+    "version": 8,
+    "sources": HYBRID_MAP_STYLE["sources"],
+    "layers": [
+        HYBRID_MAP_STYLE["layers"][0],
+        HYBRID_MAP_STYLE["layers"][2],
+    ],
+}
+
+DETAILED_MAP_STYLE_URL = (
+    "data:application/json;charset=utf-8,"
+    f"{quote(json.dumps(DETAILED_MAP_STYLE, separators=(',', ':')))}"
+)
+HYBRID_MAP_STYLE_URL = (
+    "data:application/json;charset=utf-8,"
+    f"{quote(json.dumps(HYBRID_MAP_STYLE, separators=(',', ':')))}"
+)
 SATELLITE_MAP_STYLE_URL = (
     "data:application/json;charset=utf-8,"
     f"{quote(json.dumps(SATELLITE_MAP_STYLE, separators=(',', ':')))}"
 )
+
+MAP_STYLE_OPTIONS = {
+    "Detailed": DETAILED_MAP_STYLE_URL,
+    "Hybrid": HYBRID_MAP_STYLE_URL,
+    "Satellite": SATELLITE_MAP_STYLE_URL,
+}
 
 
 def inject_styles() -> None:
@@ -228,12 +289,22 @@ python ingest_existing_jsons.py""",
 @st.cache_resource(show_spinner=False)
 def _create_dashboard_connection():
     settings = get_settings()
-    return get_connection(settings.database_url)
+    connection = get_connection(settings.database_url)
+    connection.autocommit = True
+    return connection
 
 
 def get_dashboard_connection():
     connection = _create_dashboard_connection()
-    if getattr(connection, "closed", False) or getattr(connection, "broken", False):
+    needs_reconnect = getattr(connection, "closed", False) or getattr(connection, "broken", False)
+    if not needs_reconnect:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+        except Exception:
+            needs_reconnect = True
+    if needs_reconnect:
         _create_dashboard_connection.clear()
         connection = _create_dashboard_connection()
     return connection
@@ -1415,6 +1486,7 @@ def render_pydeck_location_map(
     points: list[dict[str, Any]] | None = None,
     paths: list[dict[str, Any]] | None = None,
     polygons: list[dict[str, Any]] | None = None,
+    map_style_name: str = "Detailed",
     zoom: int = 14,
 ) -> None:
     layers: list[pdk.Layer] = []
@@ -1468,7 +1540,7 @@ def render_pydeck_location_map(
     )
     st.pydeck_chart(
         pdk.Deck(
-            map_style=SATELLITE_MAP_STYLE_URL,
+            map_style=MAP_STYLE_OPTIONS.get(map_style_name, DETAILED_MAP_STYLE_URL),
             initial_view_state=view_state,
             layers=layers,
             tooltip={"text": "{name}"},
@@ -1477,7 +1549,32 @@ def render_pydeck_location_map(
     )
 
 
-def render_map_document(document: dict[str, Any]) -> bool:
+def estimate_zoom_from_bounds(bounds: dict[str, Any] | None) -> int:
+    if not bounds:
+        return 15
+    try:
+        lat_span = abs(float(bounds["max_lat"]) - float(bounds["min_lat"]))
+        lon_span = abs(float(bounds["max_lon"]) - float(bounds["min_lon"]))
+    except Exception:
+        return 15
+
+    span = max(lat_span, lon_span)
+    if span <= 0.002:
+        return 17
+    if span <= 0.005:
+        return 16
+    if span <= 0.015:
+        return 15
+    if span <= 0.05:
+        return 14
+    if span <= 0.15:
+        return 13
+    if span <= 0.4:
+        return 12
+    return 11
+
+
+def render_map_document(document: dict[str, Any], *, map_style_name: str = "Detailed") -> bool:
     try:
         parsed = parse_map_document(document["url"])
     except Exception as exc:  # noqa: BLE001
@@ -1531,13 +1628,15 @@ def render_map_document(document: dict[str, Any]) -> bool:
         points=scatter_rows,
         paths=path_rows,
         polygons=polygon_rows,
-        zoom=14,
+        map_style_name=map_style_name,
+        zoom=estimate_zoom_from_bounds(parsed.get("bounds")),
     )
 
     st.caption(
         f"Geometry count: {parsed.get('geometry_count', 0)} | "
         f"Coordinate count: {parsed.get('coordinate_count', 0)} | "
-        f"Polygon count: {len(polygon_rows)}"
+        f"Polygon count: {len(polygon_rows)} | "
+        f"View: {map_style_name}"
     )
 
     with st.expander("Show extracted coordinates", expanded=False):
@@ -1703,9 +1802,15 @@ def render_project_overview(project: dict[str, Any]) -> None:
     st.markdown("**Map / Location**")
     rendered_map = False
     if map_documents:
+        map_style_name = st.segmented_control(
+            "Map view",
+            options=["Detailed", "Hybrid", "Satellite"],
+            default="Detailed",
+            help="Detailed shows roads and locality labels, Hybrid mixes imagery with transport/label overlays, and Satellite shows imagery-first context.",
+        )
         options = {f"{doc['title']} | {doc['file_name']}": doc for doc in map_documents}
         selected_label = st.selectbox("Map document", options=list(options.keys()))
-        rendered_map = render_map_document(options[selected_label])
+        rendered_map = render_map_document(options[selected_label], map_style_name=map_style_name)
 
     if not rendered_map:
         st.info("No usable KML/KMZ polygon was found. Trying address-based geocoding.")
@@ -2727,12 +2832,13 @@ def execute_ai_research_sql(sql: str) -> tuple[list[dict[str, Any]], list[str]]:
         raise RuntimeError(safe_or_reason)
     sql = add_limit_if_needed(safe_or_reason)
 
-    connection = get_dashboard_connection()
-    with connection.cursor() as cursor:
-        cursor.execute(f"SET LOCAL statement_timeout = '{AI_CHAT_STATEMENT_TIMEOUT_MS}ms'")
-        cursor.execute(sql)
-        rows = cursor.fetchall()
-        column_names = [desc.name for desc in cursor.description] if cursor.description else []
+    settings = get_settings()
+    with get_connection(settings.database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SET LOCAL statement_timeout = '{AI_CHAT_STATEMENT_TIMEOUT_MS}ms'")
+            cursor.execute(sql)
+            rows = cursor.fetchall()
+            column_names = [desc.name for desc in cursor.description] if cursor.description else []
 
     normalized_rows: list[dict[str, Any]] = []
     for row in rows:
