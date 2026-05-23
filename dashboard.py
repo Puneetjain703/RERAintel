@@ -49,20 +49,20 @@ st.set_page_config(
 DETAILED_MAP_STYLE = {
     "version": 8,
     "sources": {
-        "carto-voyager": {
+        "openstreetmap-standard": {
             "type": "raster",
             "tiles": [
-                "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
             ],
             "tileSize": 256,
-            "attribution": "OpenStreetMap contributors, CARTO",
+            "attribution": "OpenStreetMap contributors",
         },
     },
     "layers": [
         {
-            "id": "carto-voyager",
+            "id": "openstreetmap-standard",
             "type": "raster",
-            "source": "carto-voyager",
+            "source": "openstreetmap-standard",
             "minzoom": 0,
             "maxzoom": 20,
         },
@@ -1574,6 +1574,16 @@ def estimate_zoom_from_bounds(bounds: dict[str, Any] | None) -> int:
     return 11
 
 
+def build_google_maps_coordinate_link(latitude: float, longitude: float) -> str:
+    return f"https://www.google.com/maps/search/?api=1&query={latitude:.6f},{longitude:.6f}"
+
+
+def render_google_maps_link(latitude: float, longitude: float) -> None:
+    url = build_google_maps_coordinate_link(latitude, longitude)
+    st.link_button("Open in Google Maps", url, use_container_width=False)
+    st.caption(f"Google Maps coordinates: {latitude:.6f}, {longitude:.6f}")
+
+
 def render_map_document(document: dict[str, Any], *, map_style_name: str = "Detailed") -> bool:
     try:
         parsed = parse_map_document(document["url"])
@@ -1622,9 +1632,12 @@ def render_map_document(document: dict[str, Any], *, map_style_name: str = "Deta
                 path_rows.append({"name": "Approximate boundary line", "path": hull})
 
     center = parsed.get("center") or {"lat": all_points[0]["lat"], "lon": all_points[0]["lon"]}
+    center_lat = float(center["lat"])
+    center_lon = float(center["lon"])
+    render_google_maps_link(center_lat, center_lon)
     render_pydeck_location_map(
-        latitude=float(center["lat"]),
-        longitude=float(center["lon"]),
+        latitude=center_lat,
+        longitude=center_lon,
         points=scatter_rows,
         paths=path_rows,
         polygons=polygon_rows,
@@ -1736,6 +1749,7 @@ def render_geocoded_project_map(project: dict[str, Any]) -> None:
     }
 
     st.caption(f"Location estimated from address: {query}")
+    render_google_maps_link(lat, lon)
     render_pydeck_location_map(latitude=lat, longitude=lon, points=[point], zoom=15)
     st.caption(f"Matched address: {result.get('display_name') or 'NA'}")
 
