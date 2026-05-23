@@ -664,6 +664,18 @@ def display_text(value: Any) -> str:
     return text if text else "NA"
 
 
+def display_date(value: Any) -> str:
+    if value in (None, ""):
+        return "NA"
+    if hasattr(value, "strftime"):
+        try:
+            return value.strftime("%d-%b-%Y")
+        except Exception:
+            pass
+    text = clean_text(value)
+    return text if text else "NA"
+
+
 def display_tehsil(value: Any) -> str:
     text = clean_text(value)
     if not text or text.isdigit():
@@ -1235,6 +1247,7 @@ def query_projects(
                 plot_no,
                 promoter_name,
                 project_type,
+                approved_on,
                 approved_year,
                 project_status,
                 area_sqm,
@@ -1315,7 +1328,8 @@ def load_global_project_metrics() -> dict[str, int]:
             SELECT
                 COUNT(*)::int AS total_projects,
                 COUNT(*) FILTER (
-                    WHERE COALESCE(created_at, csv_updated_on, last_scraped_at) >= NOW() - INTERVAL '7 days'
+                    WHERE approved_on IS NOT NULL
+                      AND approved_on >= CURRENT_DATE - INTERVAL '7 days'
                 )::int AS new_projects_this_week
             FROM rera_projects
             """,
@@ -3338,13 +3352,13 @@ def main() -> None:
                 {
                     "Project": row.get("project_name"),
                     "Registration": row.get("registration_no"),
+                    "Approval Date": display_date(row.get("approved_on")),
                     "District": row.get("district_name"),
                     "Street Name": row.get("street_name"),
                     "Area / Village": row.get("village_name"),
                     "Promoter": row.get("promoter_name"),
                     "Type": row.get("project_type"),
                     "Approved Year": row.get("approved_year"),
-                    "Status": row.get("project_status"),
                     "Sold": int_display(inventory.get("sold")),
                     "Total Units / Plots / Flats": int_display(inventory.get("total")),
                     "Unsold": int_display(inventory.get("unsold")),
