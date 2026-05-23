@@ -156,17 +156,25 @@ def inject_styles() -> None:
         """
         <style>
         :root {
-            --sand: #0f1720;
-            --ink: #e8edf2;
-            --clay: #c58a62;
-            --sage: #7ea497;
-            --line: #2e3944;
+            --sand: #0c1218;
+            --panel: #121a23;
+            --panel-strong: #17212c;
+            --panel-elevated: rgba(20, 29, 39, 0.9);
+            --ink: #edf3f8;
+            --muted: #b7c3cf;
+            --clay: #cf9268;
+            --clay-bright: #e8af86;
+            --sage: #8db3a4;
+            --line: #40505f;
+            --line-strong: #5d7287;
+            --glow: rgba(232, 175, 134, 0.18);
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.32);
         }
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(197, 138, 98, 0.16), transparent 28%),
-                radial-gradient(circle at top right, rgba(126, 164, 151, 0.14), transparent 24%),
-                linear-gradient(180deg, #111821 0%, var(--sand) 100%);
+                radial-gradient(circle at top left, rgba(207, 146, 104, 0.18), transparent 24%),
+                radial-gradient(circle at top right, rgba(141, 179, 164, 0.12), transparent 22%),
+                linear-gradient(180deg, #0f1620 0%, var(--sand) 100%);
             color: var(--ink);
         }
         .block-container {
@@ -174,10 +182,11 @@ def inject_styles() -> None:
         }
         .hero {
             padding: 1.2rem 1.4rem;
-            border: 1px solid var(--line);
+            border: 1px solid var(--line-strong);
             border-radius: 18px;
-            background: rgba(17, 24, 33, 0.78);
-            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+            background:
+                linear-gradient(180deg, rgba(26, 36, 48, 0.96) 0%, rgba(16, 24, 33, 0.94) 100%);
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.04);
             backdrop-filter: blur(8px);
             margin-bottom: 1rem;
         }
@@ -188,12 +197,125 @@ def inject_styles() -> None:
         }
         .hero p {
             margin: 0.5rem 0 0 0;
-            color: #b8c4cf;
+            color: var(--muted);
+        }
+        [data-testid="stSidebar"] {
+            background:
+                linear-gradient(180deg, rgba(18, 26, 35, 0.98) 0%, rgba(12, 18, 24, 0.98) 100%);
+            border-right: 1px solid var(--line-strong);
+        }
+        div[data-testid="stMetric"],
+        div[data-testid="stExpander"],
+        div[data-testid="stDataFrame"],
+        div[data-testid="stTextInputRootElement"],
+        div[data-testid="stNumberInputContainer"],
+        div[data-baseweb="select"],
+        div[data-baseweb="textarea"],
+        div[data-testid="stFileUploader"],
+        div[data-testid="stDateInputField"],
+        div.stButton > button,
+        div.stDownloadButton > button,
+        div[data-testid="stSegmentedControl"] {
+            border-color: var(--line-strong) !important;
+        }
+        div[data-testid="stMetric"] {
+            background: linear-gradient(180deg, rgba(24, 34, 45, 0.95) 0%, rgba(18, 26, 35, 0.95) 100%);
+            border: 1px solid var(--line-strong);
+            border-radius: 16px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 28px rgba(0,0,0,0.2);
+            padding: 0.85rem 1rem;
+        }
+        div[data-testid="stMetricLabel"] {
+            color: var(--muted);
         }
         div[data-testid="stMetricValue"] {
             overflow: visible;
             text-overflow: clip;
             white-space: normal;
+            color: var(--ink);
+        }
+        div[data-testid="stExpander"] {
+            background: rgba(18, 26, 35, 0.88);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+        }
+        div[data-testid="stDataFrame"] {
+            border: 1px solid var(--line-strong);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+        }
+        div[data-baseweb="tab-list"] {
+            gap: 0.45rem;
+            background: transparent;
+        }
+        button[data-baseweb="tab"] {
+            background: rgba(18, 26, 35, 0.92) !important;
+            border: 1px solid var(--line) !important;
+            border-radius: 12px !important;
+            color: var(--muted) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+        }
+        button[data-baseweb="tab"][aria-selected="true"] {
+            color: var(--ink) !important;
+            border-color: var(--clay-bright) !important;
+            background:
+                linear-gradient(180deg, rgba(37, 28, 21, 0.98) 0%, rgba(28, 22, 18, 0.98) 100%) !important;
+            box-shadow: 0 0 0 1px rgba(232, 175, 134, 0.12), 0 10px 22px rgba(0,0,0,0.24);
+        }
+        div.stButton > button,
+        div.stDownloadButton > button,
+        a[data-testid="stLinkButton"] {
+            background: linear-gradient(180deg, #1e2b38 0%, #18222d 100%) !important;
+            color: var(--ink) !important;
+            border: 1px solid var(--line-strong) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        div.stButton > button[kind="primary"] {
+            background: linear-gradient(180deg, var(--clay-bright) 0%, var(--clay) 100%) !important;
+            color: #111821 !important;
+            border: 1px solid rgba(255, 214, 184, 0.55) !important;
+            box-shadow: 0 12px 28px rgba(207, 146, 104, 0.28);
+        }
+        div.stButton > button:hover,
+        div.stDownloadButton > button:hover,
+        a[data-testid="stLinkButton"]:hover {
+            border-color: var(--clay-bright) !important;
+            box-shadow: 0 0 0 1px var(--glow), 0 14px 30px rgba(0,0,0,0.24);
+        }
+        div[data-baseweb="input"] > div,
+        div[data-baseweb="textarea"] > div,
+        div[data-baseweb="select"] > div,
+        div[data-testid="stDateInputField"] > div {
+            background: rgba(17, 24, 33, 0.94) !important;
+            border: 1px solid var(--line) !important;
+            border-radius: 12px !important;
+            color: var(--ink) !important;
+        }
+        div[data-baseweb="input"] input,
+        div[data-baseweb="textarea"] textarea,
+        div[data-baseweb="select"] input {
+            color: var(--ink) !important;
+        }
+        div[data-baseweb="input"] > div:focus-within,
+        div[data-baseweb="textarea"] > div:focus-within,
+        div[data-baseweb="select"] > div:focus-within {
+            border-color: var(--clay-bright) !important;
+            box-shadow: 0 0 0 1px var(--glow);
+        }
+        div[data-testid="stSegmentedControl"] {
+            background: rgba(16, 24, 33, 0.92);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 0.25rem;
+        }
+        div[data-testid="stSegmentedControl"] button {
+            border-radius: 10px !important;
+        }
+        hr {
+            border-color: var(--line);
         }
         </style>
         """,
