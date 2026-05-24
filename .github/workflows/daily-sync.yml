@@ -34,11 +34,12 @@ jobs:
       GEOCODING_REVERSE_ENDPOINT: ${{ vars.GEOCODING_REVERSE_ENDPOINT || 'https://nominatim.openstreetmap.org/reverse' }}
       GEOCODING_USER_AGENT: ${{ vars.GEOCODING_USER_AGENT || 'rera-rajasthan-intel/1.0' }}
       GEOCODING_EMAIL: ${{ vars.GEOCODING_EMAIL || '' }}
-      RERA_CSV_PATH: ${{ runner.temp }}/rajasthan_rera_projects.csv
-      RERA_JSON_DIR: ${{ runner.temp }}/rera_project_detail_jsons
-      DETAIL_SYNC_FAILURE_STATE_PATH: ${{ runner.temp }}/.rera_detail_sync_failures.json
-      AUTO_SYNC_STATE_PATH: ${{ runner.temp }}/.rera_auto_sync_state.json
-      AUTO_SYNC_LOCK_PATH: ${{ runner.temp }}/.rera_auto_sync.lock
+      WORK_TMP_DIR: ${{ github.workspace }}/.tmp
+      RERA_CSV_PATH: ${{ github.workspace }}/.tmp/rajasthan_rera_projects.csv
+      RERA_JSON_DIR: ${{ github.workspace }}/.tmp/rera_project_detail_jsons
+      DETAIL_SYNC_FAILURE_STATE_PATH: ${{ github.workspace }}/.tmp/.rera_detail_sync_failures.json
+      AUTO_SYNC_STATE_PATH: ${{ github.workspace }}/.tmp/.rera_auto_sync_state.json
+      AUTO_SYNC_LOCK_PATH: ${{ github.workspace }}/.tmp/.rera_auto_sync.lock
 
     steps:
       - name: Check out repository
@@ -54,7 +55,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Prepare runner directories
-        run: mkdir -p "$RERA_JSON_DIR"
+        run: mkdir -p "$WORK_TMP_DIR" "$RERA_JSON_DIR"
 
       - name: Validate required secrets
         run: |
