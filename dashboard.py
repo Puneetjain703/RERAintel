@@ -1329,7 +1329,7 @@ def load_global_project_metrics() -> dict[str, int]:
                 COUNT(*)::int AS total_projects,
                 COUNT(*) FILTER (
                     WHERE approved_on IS NOT NULL
-                      AND approved_on >= CURRENT_DATE - INTERVAL '7 days'
+                      AND approved_on >= date_trunc('week', CURRENT_DATE::timestamp)::date
                 )::int AS new_projects_this_week
             FROM rera_projects
             """,
